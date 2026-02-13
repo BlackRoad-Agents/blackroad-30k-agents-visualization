@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlackRoad 30K Agents | Kind Light Visualization</title>
+    <style>
+        :root {
+            --hot-pink: #FF1D6C;
+            --amber: #F5A623;
+            --electric-blue: #2979FF;
+            --violet: #9C27B0;
+            --black: #0a0a0a;
+            --white: #FFFFFF;
+            /* Golden Ratio Spacing */
+            --phi: 1.618;
+            --space-xs: 8px;
+            --space-sm: 13px;
+            --space-md: 21px;
+            --space-lg: 34px;
+            --space-xl: 55px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--black);
+            color: var(--white);
+            overflow: hidden;
+            line-height: 1.618;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .overlay {
+            position: fixed;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .header {
+            top: var(--space-lg);
+            left: var(--space-lg);
+            right: var(--space-lg);
+        }
+
+        .title {
+            font-size: 2.618rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--amber) 0%, var(--hot-pink) 38.2%, var(--violet) 61.8%, var(--electric-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--space-xs);
+            text-shadow: 0 0 40px rgba(255, 29, 108, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .stats-panel {
+            bottom: var(--space-lg);
+            left: var(--space-lg);
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 29, 108, 0.3);
+            border-radius: var(--space-sm);
+            padding: var(--space-md);
+            pointer-events: auto;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-xs);
+        }
+
+        .stat:last-child {
+            margin-bottom: 0;
+        }
+
+        .stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .stat-dot.pink { background: var(--hot-pink); }
+        .stat-dot.amber { background: var(--amber); animation-delay: 0.5s; }
+        .stat-dot.blue { background: var(--electric-blue); animation-delay: 1s; }
+        .stat-dot.violet { background: var(--violet); animation-delay: 1.5s; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            min-width: 100px;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-value.pink { color: var(--hot-pink); }
+        .stat-value.amber { color: var(--amber); }
+        .stat-value.blue { color: var(--electric-blue); }
+        .stat-value.violet { color: var(--violet); }
+
+        .controls {
+            bottom: var(--space-lg);
+            right: var(--space-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+            pointer-events: auto;
+        }
+
+        .control-btn {
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 29, 108, 0.3);
+            border-radius: var(--space-xs);
+            padding: var(--space-sm) var(--space-md);
+            color: var(--white);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            border-color: var(--hot-pink);
+            background: rgba(255, 29, 108, 0.1);
+            transform: translateX(-4px);
+        }
+
+        .agent-tooltip {
+            position: fixed;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--hot-pink);
+            border-radius: var(--space-xs);
+            padding: var(--space-sm);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 100;
+            max-width: 250px;
+        }
+
+        .agent-tooltip.visible {
+            opacity: 1;
+        }
+
+        .agent-name {
+            font-weight: 600;
+            color: var(--hot-pink);
+            margin-bottom: 4px;
+        }
+
+        .agent-role {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 5;
+            opacity: 0;
+            animation: fadeInOut 4s ease-in-out forwards;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+        }
+
+        .message-text {
+            font-size: 1.618rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 0 20px rgba(255, 29, 108, 0.5);
+        }
+
+        .kind-light {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, rgba(245, 166, 35, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 2;
+            animation: breathe 8s ease-in-out infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div class="kind-light"></div>
+
+    <div class="overlay header">
+        <h1 class="title">30,000 Agents</h1>
+        <p class="subtitle">BlackRoad Kind Light Visualization</p>
+    </div>
+
+    <div class="overlay stats-panel">
+        <div class="stat">
+            <div class="stat-dot pink"></div>
+            <span class="stat-label">Active</span>
+            <span class="stat-value pink" id="stat-active">0</span>
+        </div>
+        <div class="stat">
+            <div class="stat-dot amber"></div>
+            <span class="stat-label">Learning</span>
+            <span class="stat-value amber" id="stat-learning">0</span>
+        </div>
+        <div class="stat">
+            <div class="stat-dot blue"></div>
+            <span class="stat-label">Processing</span>
+            <span class="stat-value blue" id="stat-processing">0</span>
+        </div>
+        <div class="stat">
+            <div class="stat-dot violet"></div>
+            <span class="stat-label">Resting</span>
+            <span class="stat-value violet" id="stat-resting">0</span>
+        </div>
+    </div>
+
+    <div class="overlay controls">
+        <button class="control-btn" onclick="toggleRotation()">Pause Rotation</button>
+        <button class="control-btn" onclick="changeFormation()">Change Formation</button>
+        <button class="control-btn" onclick="spreadAgents()">Spread Joy</button>
+    </div>
+
+    <div class="agent-tooltip" id="tooltip">
+        <div class="agent-name" id="tooltip-name">Agent Name</div>
+        <div class="agent-role" id="tooltip-role">Role</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // BlackRoad Brand Colors
+        const COLORS = {
+            hotPink: new THREE.Color(0xFF1D6C),
+            amber: new THREE.Color(0xF5A623),
+            electricBlue: new THREE.Color(0x2979FF),
+            violet: new THREE.Color(0x9C27B0),
+        };
+
+        // Agent types with mythology-inspired names
+        const AGENT_TYPES = [
+            { name: 'Navigator', color: COLORS.hotPink, count: 7500 },
+            { name: 'Sentinel', color: COLORS.amber, count: 7500 },
+            { name: 'Architect', color: COLORS.electricBlue, count: 7500 },
+            { name: 'Oracle', color: COLORS.violet, count: 7500 }
+        ];
+
+        const MYTHOLOGY_NAMES = [
+            'Zeus', 'Athena', 'Apollo', 'Artemis', 'Hermes', 'Hera', 'Poseidon', 'Demeter',
+            'Ares', 'Aphrodite', 'Hephaestus', 'Dionysus', 'Persephone', 'Hades', 'Nike',
+            'Iris', 'Eos', 'Selene', 'Helios', 'Pan', 'Hecate', 'Nemesis', 'Tyche', 'Morpheus',
+            'Hypnos', 'Thanatos', 'Chronos', 'Gaia', 'Uranus', 'Rhea', 'Cronus', 'Prometheus',
+            'Atlas', 'Epimetheus', 'Pandora', 'Daedalus', 'Icarus', 'Orpheus', 'Eurydice',
+            'Theseus', 'Perseus', 'Hercules', 'Achilles', 'Odysseus', 'Jason', 'Medea',
+            'Cassandra', 'Helen', 'Paris', 'Hector', 'Andromeda', 'Phoenix', 'Griffin',
+            'Pegasus', 'Chiron', 'Cerberus', 'Hydra', 'Sphinx', 'Minotaur', 'Cyclops'
+        ];
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        camera.position.z = 500;
+
+        // Particle system for 30,000 agents
+        const AGENT_COUNT = 30000;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(AGENT_COUNT * 3);
+        const colors = new Float32Array(AGENT_COUNT * 3);
+        const sizes = new Float32Array(AGENT_COUNT);
+        const agentData = [];
+
+        // Golden Ratio spiral distribution
+        const PHI = 1.618033988749895;
+        const goldenAngle = Math.PI * 2 / (PHI * PHI);
+
+        for (let i = 0; i < AGENT_COUNT; i++) {
+            // Spherical golden spiral
+            const t = i / AGENT_COUNT;
+            const inclination = Math.acos(1 - 2 * t);
+            const azimuth = goldenAngle * i;
+            const radius = 200 + Math.random() * 100;
+
+            positions[i * 3] = radius * Math.sin(inclination) * Math.cos(azimuth);
+            positions[i * 3 + 1] = radius * Math.sin(inclination) * Math.sin(azimuth);
+            positions[i * 3 + 2] = radius * Math.cos(inclination);
+
+            // Assign type based on index
+            const typeIndex = Math.floor(i / 7500);
+            const type = AGENT_TYPES[Math.min(typeIndex, 3)];
+
+            colors[i * 3] = type.color.r;
+            colors[i * 3 + 1] = type.color.g;
+            colors[i * 3 + 2] = type.color.b;
+
+            sizes[i] = 2 + Math.random() * 3;
+
+            // Store agent data
+            agentData.push({
+                id: i,
+                name: `${MYTHOLOGY_NAMES[i % MYTHOLOGY_NAMES.length]}-${String(i).padStart(5, '0')}`,
+                type: type.name,
+                originalPos: {
+                    x: positions[i * 3],
+                    y: positions[i * 3 + 1],
+                    z: positions[i * 3 + 2]
+                }
+            });
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+        // Custom shader for glowing particles
+        const vertexShader = `
+            attribute float size;
+            varying vec3 vColor;
+            void main() {
+                vColor = color;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = size * (300.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+
+        const fragmentShader = `
+            varying vec3 vColor;
+            void main() {
+                float r = distance(gl_PointCoord, vec2(0.5));
+                if (r > 0.5) discard;
+                float alpha = 1.0 - smoothstep(0.3, 0.5, r);
+                gl_FragColor = vec4(vColor, alpha * 0.9);
+            }
+        `;
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: {},
+            vertexShader,
+            fragmentShader,
+            transparent: true,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        // Add ambient glow
+        const glowGeometry = new THREE.SphereGeometry(180, 32, 32);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFF1D6C,
+            transparent: true,
+            opacity: 0.03,
+            side: THREE.BackSide
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        scene.add(glow);
+
+        // Animation state
+        let isRotating = true;
+        let currentFormation = 0;
+        let time = 0;
+        let targetPositions = null;
+
+        // Update stats
+        function updateStats() {
+            const active = 7500 + Math.floor(Math.random() * 100);
+            const learning = 7500 + Math.floor(Math.random() * 100);
+            const processing = 7500 + Math.floor(Math.random() * 100);
+            const resting = 30000 - active - learning - processing;
+
+            document.getElementById('stat-active').textContent = active.toLocaleString();
+            document.getElementById('stat-learning').textContent = learning.toLocaleString();
+            document.getElementById('stat-processing').textContent = processing.toLocaleString();
+            document.getElementById('stat-resting').textContent = Math.abs(resting).toLocaleString();
+        }
+
+        setInterval(updateStats, 2000);
+        updateStats();
+
+        // Controls
+        window.toggleRotation = function() {
+            isRotating = !isRotating;
+            document.querySelector('.control-btn').textContent = isRotating ? 'Pause Rotation' : 'Resume Rotation';
+        };
+
+        window.changeFormation = function() {
+            currentFormation = (currentFormation + 1) % 4;
+            const positions = geometry.attributes.position.array;
+
+            for (let i = 0; i < AGENT_COUNT; i++) {
+                let x, y, z;
+                const t = i / AGENT_COUNT;
+
+                switch (currentFormation) {
+                    case 0: // Sphere
+                        const inclination = Math.acos(1 - 2 * t);
+                        const azimuth = goldenAngle * i;
+                        const radius = 200 + Math.random() * 100;
+                        x = radius * Math.sin(inclination) * Math.cos(azimuth);
+                        y = radius * Math.sin(inclination) * Math.sin(azimuth);
+                        z = radius * Math.cos(inclination);
+                        break;
+                    case 1: // Torus
+                        const u = (i / AGENT_COUNT) * Math.PI * 2 * 10;
+                        const v = goldenAngle * i;
+                        const R = 200;
+                        const r = 80;
+                        x = (R + r * Math.cos(v)) * Math.cos(u);
+                        y = (R + r * Math.cos(v)) * Math.sin(u);
+                        z = r * Math.sin(v);
+                        break;
+                    case 2: // DNA Helix
+                        const height = (t - 0.5) * 600;
+                        const angle = i * 0.05;
+                        const helixR = 100;
+                        x = helixR * Math.cos(angle + (i % 2) * Math.PI);
+                        y = height;
+                        z = helixR * Math.sin(angle + (i % 2) * Math.PI);
+                        break;
+                    case 3: // Galaxy
+                        const arm = i % 4;
+                        const armAngle = (arm / 4) * Math.PI * 2;
+                        const dist = 50 + t * 250;
+                        const spiral = t * Math.PI * 4;
+                        x = dist * Math.cos(spiral + armAngle) + (Math.random() - 0.5) * 50;
+                        y = (Math.random() - 0.5) * 30;
+                        z = dist * Math.sin(spiral + armAngle) + (Math.random() - 0.5) * 50;
+                        break;
+                }
+
+                agentData[i].originalPos = { x, y, z };
+            }
+        };
+
+        window.spreadAgents = function() {
+            // Show kind message
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.innerHTML = '<div class="message-text">Spreading joy to all 30,000 agents!</div>';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 4000);
+
+            // Temporary spread
+            const positions = geometry.attributes.position.array;
+            for (let i = 0; i < AGENT_COUNT; i++) {
+                const spread = 1.5;
+                positions[i * 3] *= spread;
+                positions[i * 3 + 1] *= spread;
+                positions[i * 3 + 2] *= spread;
+            }
+            geometry.attributes.position.needsUpdate = true;
+
+            // Return to normal
+            setTimeout(() => {
+                for (let i = 0; i < AGENT_COUNT; i++) {
+                    positions[i * 3] = agentData[i].originalPos.x;
+                    positions[i * 3 + 1] = agentData[i].originalPos.y;
+                    positions[i * 3 + 2] = agentData[i].originalPos.z;
+                }
+                geometry.attributes.position.needsUpdate = true;
+            }, 2000);
+        };
+
+        // Mouse interaction
+        const raycaster = new THREE.Raycaster();
+        raycaster.params.Points.threshold = 5;
+        const mouse = new THREE.Vector2();
+        const tooltip = document.getElementById('tooltip');
+
+        document.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(particles);
+
+            if (intersects.length > 0) {
+                const idx = intersects[0].index;
+                const agent = agentData[idx];
+
+                tooltip.classList.add('visible');
+                tooltip.style.left = `${event.clientX + 15}px`;
+                tooltip.style.top = `${event.clientY + 15}px`;
+                document.getElementById('tooltip-name').textContent = agent.name;
+                document.getElementById('tooltip-role').textContent = `${agent.type} Agent | ID: ${agent.id}`;
+            } else {
+                tooltip.classList.remove('visible');
+            }
+        });
+
+        // Camera movement with mouse
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX - window.innerWidth / 2) * 0.0005;
+            mouseY = (e.clientY - window.innerHeight / 2) * 0.0005;
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.001;
+
+            if (isRotating) {
+                particles.rotation.y += 0.001;
+                particles.rotation.x = Math.sin(time) * 0.1;
+            }
+
+            // Gentle breathing animation
+            const positions = geometry.attributes.position.array;
+            for (let i = 0; i < AGENT_COUNT; i++) {
+                const breathe = Math.sin(time * 2 + i * 0.001) * 2;
+                positions[i * 3] = agentData[i].originalPos.x + breathe * (agentData[i].originalPos.x / 200);
+                positions[i * 3 + 1] = agentData[i].originalPos.y + breathe * (agentData[i].originalPos.y / 200);
+                positions[i * 3 + 2] = agentData[i].originalPos.z + breathe * (agentData[i].originalPos.z / 200);
+            }
+            geometry.attributes.position.needsUpdate = true;
+
+            // Camera follows mouse gently
+            camera.position.x += (mouseX * 100 - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY * 100 - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            glow.rotation.y -= 0.002;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Welcome message
+        setTimeout(() => {
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.innerHTML = '<div class="message-text">Welcome to the Kind Light</div>';
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 4000);
+        }, 1000);
+    </script>
+</body>
+</html>
